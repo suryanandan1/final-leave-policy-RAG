@@ -1,0 +1,191 @@
+{% extends "leave_app/base.html" %}
+{% load answer_filters %}
+
+{% block content %}
+<div class="app-shell" id="appShell">
+
+    <aside class="sidebar" id="sidebar">
+        <button type="button" class="sidebar-toggle" id="sidebarToggle">☰</button>
+
+        <div class="sidebar-content">
+            <h2>{{ employee.name }}</h2>
+
+            <div class="profile-card">
+                <div><span>ID:</span> <strong>{{ employee.employee_id }}</strong></div>
+                <div><span>Grade:</span> <strong>{{ employee.grade }}</strong></div>
+            </div>
+
+            <div class="leave-card">
+                <div class="leave-row"><span>PL Taken</span><strong>{{ employee.PL_taken }}</strong></div>
+                <div class="leave-row"><span>CL Taken</span><strong>{{ employee.CL_taken }}</strong></div>
+                <div class="leave-row"><span>SL Taken</span><strong>{{ employee.SL_taken }}</strong></div>
+            </div>
+
+            <a href="?action=new_chat" class="new-chat-btn">New Chat</a>
+            <!-- <a href="?action=clear_chat" class="clear-chat-btn">Clear Chat</a> -->
+            
+            <a class="logout" href="{% url 'logout' %}">Logout</a>
+
+            <div class="history-section">
+                <h3>Chat History</h3>
+
+                {% for history in chat_history %}
+                    <a href="?history={{ forloop.counter0 }}" class="history-item">
+                        Chat {{ forloop.counter }}
+                        <br><br>
+                    </a>
+                {% empty %}
+                    <p class="history-empty">No previous chats</p>
+                {% endfor %}
+            </div>
+
+            
+        </div>
+    </aside>
+
+    <section class="chat-panel">
+        <header class="chat-header">
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                width:100%;
+            ">
+
+                <h1 style="
+                    margin:0;
+                    font-size:48px;
+                    font-weight:800;
+                    color:#0f172a;
+                ">
+                    Leave Policy Assistant
+                </h1>
+
+                <a href="?action=clear_chat"
+                style="
+                        background:#ef4444;
+                        color:white;
+                        padding:12px 20px;
+                        border-radius:12px;
+                        text-decoration:none;
+                        font-weight:700;
+                ">
+                    Clear Chat
+                </a>
+
+            </div>
+
+        </header>
+
+        <div class="chat-box" id="chatBox">
+            {% if chat_messages %}
+                {% for msg in chat_messages %}
+                    <div class="bubble {{ msg.role }}">
+                        <span>{{ msg.role|title }}</span>
+
+                        {% if msg.role == "assistant" %}
+                            <div class="answer-content">
+                                {{ msg.content|format_answer }}
+                            </div>
+                        {% else %}
+                            <p>{{ msg.content|linebreaksbr }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>How can I help with your leave policy?</h3>
+                    <p>Try one of these questions or ask your Question:</p>
+
+                    <div class="suggestions">
+                        <button type="button" onclick="fillQuestion('How many leaves are left?')">
+                            How many leaves are left?
+                        </button>
+
+                        <button type="button" onclick="fillQuestion('Can I take sick leave?')">
+                            Can I take sick leave?
+                        </button>
+
+                        <button type="button" onclick="fillQuestion('Can I prefix CL with PL?')">
+                            Can I prefix CL with PL?
+                        </button>
+
+                        <button type="button" onclick="fillQuestion('What is PL encashment rule?')">
+                            What is PL encashment rule?
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <form method="post" class="question-form" id="questionForm">
+            {% csrf_token %}
+            <input
+                name="query"
+                id="queryInput"
+                placeholder="Ask your leave policy question..."
+                autocomplete="off"
+                required
+            >
+            <button type="submit" id="askButton">Ask</button>
+        </form>
+    </section>
+</div>
+
+<script>
+    const appShell = document.getElementById("appShell");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+    const chatBox = document.getElementById("chatBox");
+    const questionForm = document.getElementById("questionForm");
+    const queryInput = document.getElementById("queryInput");
+    const askButton = document.getElementById("askButton");
+
+    function fillQuestion(text) {
+        queryInput.value = text;
+        queryInput.focus();
+    }
+
+    if (localStorage.getItem("djangoSidebarClosed") === "true") {
+        appShell.classList.add("sidebar-closed");
+    }
+
+    sidebarToggle.addEventListener("click", function () {
+        appShell.classList.toggle("sidebar-closed");
+        localStorage.setItem(
+            "djangoSidebarClosed",
+            appShell.classList.contains("sidebar-closed")
+        );
+    });
+
+    if (chatBox) {
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    questionForm.addEventListener("submit", function () {
+        const text = queryInput.value.trim();
+        if (!text) return;
+
+        const userBubble = document.createElement("div");
+        userBubble.className = "bubble user";
+        userBubble.innerHTML =
+            `<span>You</span><p>${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`;
+        chatBox.appendChild(userBubble);
+
+        const loaderBubble = document.createElement("div");
+        loaderBubble.className = "bubble assistant generating-bubble";
+        loaderBubble.innerHTML =
+            `<span>Assistant</span>
+             <div class="generating">
+                <div class="spinner"></div>
+                <p>Generating answer...</p>
+             </div>`;
+
+        chatBox.appendChild(loaderBubble);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        askButton.disabled = true;
+        askButton.innerText = "Wait";
+    });
+</script>
+{% endblock %}
